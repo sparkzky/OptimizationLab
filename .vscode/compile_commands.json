@@ -1,0 +1,6 @@
+[
+{
+  "directory": "/home/dragonos/MY/rrjmyzhx/last_work",
+  "arguments": ["/bin/gcc", "-c", "-m64", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-O3", "-std=c++17", "-msse", "-mavx", "-mfma", "-DNDEBUG", "-o", "build/.objs/last_work/linux/x86_64/release/src/main.cpp.o", "src/main.cpp"],
+  "file": "src/main.cpp"
+}]
