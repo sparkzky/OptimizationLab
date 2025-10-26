@@ -34,10 +34,10 @@ target("simd_perf_test")
     add_files("src/simd_benchmark/simd_perf_test.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/simd_benchmark/filelines_simd_opt.cpp", "src/find_most_freq.cpp")
     add_cxflags("-mavx2", "-mfma")
 
--- 生产者-消费者模型测试程序
-target("producer_consumer_test")
+-- 多线程SIMD性能测试程序（生产者-消费者模型）
+target("mt_perf_test")
     set_kind("binary")
-    add_files("src/simd_benchmark/producer_consumer_test.cpp", "src/simd_benchmark/filelines_producer_consumer.cpp", "src/simd_benchmark/filelines_simd_opt.cpp", "src/find_most_freq.cpp")
+    add_files("src/simd_benchmark/mt_perf_test.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/simd_benchmark/filelines_simd_opt.cpp", "src/simd_benchmark/filelines_mt.cpp", "src/find_most_freq.cpp")
     add_cxflags("-mavx2", "-mfma")
     add_syslinks("pthread")
 

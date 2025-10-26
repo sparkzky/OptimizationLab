@@ -1,10 +1,10 @@
 /*
- * SIMD优化性能测试程序
- * 对比：标量版本（basic_benchmark） vs SIMD优化版本
- * 块大小：256KB（与basic_benchmark一致）
+ * 多线程性能对比测试程序
+ * 对比：标量 vs 单线程SIMD vs 多线程SIMD（生产者-消费者）
  */
 
 #include "filelines_baseline.h"
+#include "filelines_mt.h"
 #include "filelines_simd_opt.h"
 #include "find_most_freq.h"
 
@@ -29,23 +29,19 @@ TestResult run_test(char* filepath, void (*test_func)(char*, uint32_t*, uint32_t
     uint32_t line_num[MAX_LEN];
     uint32_t total_line_num = 0;
 
-    // 初始化
     memset(line_num, 0, sizeof(line_num));
 
-    cout << "  运行 " << version_name << "..." << flush;
+    cout << "  测试 " << version_name << "..." << flush;
 
-    // 计时
     auto start = chrono::high_resolution_clock::now();
     test_func(filepath, &total_line_num, line_num);
     auto end = chrono::high_resolution_clock::now();
 
     chrono::duration<double> duration = end - start;
 
-    // 查找最频繁的行长度
     uint32_t most_freq_len, most_freq_len_linenum;
     find_most_freq_line(line_num, &most_freq_len, &most_freq_len_linenum);
 
-    // 获取文件大小
     FILE* fp = fopen(filepath, "rb");
     long file_size = 0;
     if (fp) {
@@ -61,7 +57,8 @@ TestResult run_test(char* filepath, void (*test_func)(char*, uint32_t*, uint32_t
     result.most_freq_len = most_freq_len;
     result.most_freq_count = most_freq_len_linenum;
 
-    cout << " 完成 (" << fixed << setprecision(3) << duration.count() << "s)" << endl;
+    cout << " 完成 (" << fixed << setprecision(3) << duration.count() << "s, " << setprecision(1)
+         << result.throughput_mb_s << " MB/s)" << endl;
 
     return result;
 }
@@ -75,7 +72,6 @@ int main(int argc, char* argv[]) {
 
     char* filepath = argv[1];
 
-    // 检查文件
     FILE* fp = fopen(filepath, "rb");
     if (!fp) {
         fprintf(stderr, "错误: 无法打开文件 '%s'\n", filepath);
@@ -87,33 +83,37 @@ int main(int argc, char* argv[]) {
     fclose(fp);
 
     cout << "\n========================================" << endl;
-    cout << "      SIMD优化性能测试" << endl;
+    cout << "    多线程优化性能对比测试" << endl;
     cout << "========================================\n" << endl;
 
     cout << "测试文件: " << filepath << endl;
     cout << "文件大小: " << fixed << setprecision(2) << (file_size / (1024.0 * 1024.0 * 1024.0)) << " GB" << endl;
-    cout << "块大小: 256 KB\n" << endl;
+    cout << "块大小: 256 KB" << endl;
+    cout << "缓冲队列: 4 块\n" << endl;
 
     cout << "运行测试（每个版本测试3次取平均）...\n" << endl;
 
     // 测试3次取平均
-    TestResult baseline_results[3], simd_results[3];
+    TestResult baseline_results[3], simd_results[3], mt_results[3];
 
     for (int i = 0; i < 3; i++) {
-        cout << "[测试轮次 " << (i + 1) << "/3]" << endl;
-        baseline_results[i] = run_test(filepath, filelines_baseline, "标量版本");
-        simd_results[i] = run_test(filepath, filelines_simd, "SIMD版本");
+        cout << "[轮次 " << (i + 1) << "/3]" << endl;
+        baseline_results[i] = run_test(filepath, filelines_baseline, "标量版本        ");
+        simd_results[i] = run_test(filepath, filelines_simd, "单线程SIMD版本  ");
+        mt_results[i] = run_test(filepath, filelines_mt, "多线程SIMD版本  ");
         cout << endl;
     }
 
     // 计算平均值
-    TestResult baseline_avg = {0}, simd_avg = {0};
+    TestResult baseline_avg = {0}, simd_avg = {0}, mt_avg = {0};
 
     for (int i = 0; i < 3; i++) {
         baseline_avg.time_seconds += baseline_results[i].time_seconds / 3.0;
         baseline_avg.throughput_mb_s += baseline_results[i].throughput_mb_s / 3.0;
         simd_avg.time_seconds += simd_results[i].time_seconds / 3.0;
         simd_avg.throughput_mb_s += simd_results[i].throughput_mb_s / 3.0;
+        mt_avg.time_seconds += mt_results[i].time_seconds / 3.0;
+        mt_avg.throughput_mb_s += mt_results[i].throughput_mb_s / 3.0;
     }
 
     baseline_avg.total_lines = baseline_results[0].total_lines;
@@ -122,42 +122,56 @@ int main(int argc, char* argv[]) {
     simd_avg.total_lines = simd_results[0].total_lines;
     simd_avg.most_freq_len = simd_results[0].most_freq_len;
     simd_avg.most_freq_count = simd_results[0].most_freq_count;
+    mt_avg.total_lines = mt_results[0].total_lines;
+    mt_avg.most_freq_len = mt_results[0].most_freq_len;
+    mt_avg.most_freq_count = mt_results[0].most_freq_count;
 
     cout << "========================================" << endl;
     cout << "          平均测试结果" << endl;
     cout << "========================================\n" << endl;
 
-    cout << left << setw(20) << "版本" << setw(15) << "时间(秒)" << setw(18) << "吞吐量(MB/s)" << setw(12) << "总行数"
+    cout << left << setw(25) << "版本" << setw(15) << "时间(秒)" << setw(18) << "吞吐量(MB/s)" << setw(12) << "加速比"
          << endl;
-    cout << string(65, '-') << endl;
+    cout << string(70, '-') << endl;
 
-    cout << left << setw(20) << "标量版本" << fixed << setprecision(4) << setw(15) << baseline_avg.time_seconds
-         << setprecision(2) << setw(18) << baseline_avg.throughput_mb_s << setw(12) << baseline_avg.total_lines << endl;
+    cout << left << setw(25) << "标量版本" << fixed << setprecision(4) << setw(15) << baseline_avg.time_seconds
+         << setprecision(2) << setw(18) << baseline_avg.throughput_mb_s << "1.00x" << endl;
 
-    cout << left << setw(20) << "SIMD版本 (AVX2)" << fixed << setprecision(4) << setw(15) << simd_avg.time_seconds
-         << setprecision(2) << setw(18) << simd_avg.throughput_mb_s << setw(12) << simd_avg.total_lines << endl;
+    double simd_speedup = baseline_avg.time_seconds / simd_avg.time_seconds;
+    cout << left << setw(25) << "单线程SIMD版本" << fixed << setprecision(4) << setw(15) << simd_avg.time_seconds
+         << setprecision(2) << setw(18) << simd_avg.throughput_mb_s << setprecision(2) << simd_speedup << "x" << endl;
 
-    cout << string(65, '-') << endl;
+    double mt_speedup = baseline_avg.time_seconds / mt_avg.time_seconds;
+    cout << left << setw(25) << "多线程SIMD版本" << fixed << setprecision(4) << setw(15) << mt_avg.time_seconds
+         << setprecision(2) << setw(18) << mt_avg.throughput_mb_s << setprecision(2) << mt_speedup << "x" << endl;
 
-    // 计算性能提升
-    double speedup = baseline_avg.time_seconds / simd_avg.time_seconds;
-    double throughput_improvement =
-        (simd_avg.throughput_mb_s - baseline_avg.throughput_mb_s) / baseline_avg.throughput_mb_s * 100.0;
+    cout << string(70, '-') << endl;
 
-    cout << "\n性能分析:" << endl;
-    cout << "  加速比: " << fixed << setprecision(2) << speedup << "x";
-    if (speedup > 1.0) {
-        cout << " (SIMD更快 " << setprecision(1) << (speedup - 1.0) * 100 << "%)" << endl;
-    } else {
-        cout << " (标量更快 " << setprecision(1) << (1.0 / speedup - 1.0) * 100 << "%)" << endl;
-    }
-    cout << "  吞吐量提升: " << setprecision(1) << throughput_improvement << "%" << endl;
-    cout << "  时间节省: " << setprecision(3) << (baseline_avg.time_seconds - simd_avg.time_seconds) << " 秒" << endl;
+    // 详细性能分析
+    cout << "\n性能提升分析:" << endl;
+    cout << "  标量 → 单线程SIMD:" << endl;
+    cout << "    加速比: " << fixed << setprecision(2) << simd_speedup << "x (" << setprecision(1)
+         << (simd_speedup - 1.0) * 100 << "% 提升)" << endl;
+    cout << "    吞吐量: " << setprecision(2) << baseline_avg.throughput_mb_s << " → " << simd_avg.throughput_mb_s
+         << " MB/s" << endl;
+
+    double mt_vs_simd = simd_avg.time_seconds / mt_avg.time_seconds;
+    cout << "\n  单线程SIMD → 多线程SIMD:" << endl;
+    cout << "    加速比: " << fixed << setprecision(2) << mt_vs_simd << "x (" << setprecision(1)
+         << (mt_vs_simd - 1.0) * 100 << "% 提升)" << endl;
+    cout << "    吞吐量: " << setprecision(2) << simd_avg.throughput_mb_s << " → " << mt_avg.throughput_mb_s << " MB/s"
+         << endl;
+
+    cout << "\n  标量 → 多线程SIMD (总提升):" << endl;
+    cout << "    加速比: " << fixed << setprecision(2) << mt_speedup << "x (" << setprecision(1)
+         << (mt_speedup - 1.0) * 100 << "% 提升)" << endl;
+    cout << "    吞吐量: " << setprecision(2) << baseline_avg.throughput_mb_s << " → " << mt_avg.throughput_mb_s
+         << " MB/s" << endl;
 
     // 验证结果一致性
     bool results_match = (baseline_avg.total_lines == simd_avg.total_lines) &&
-                         (baseline_avg.most_freq_len == simd_avg.most_freq_len) &&
-                         (baseline_avg.most_freq_count == simd_avg.most_freq_count);
+                         (simd_avg.total_lines == mt_avg.total_lines) &&
+                         (baseline_avg.most_freq_len == mt_avg.most_freq_len);
 
     cout << "\n结果验证:" << endl;
     cout << "  总行数: " << baseline_avg.total_lines << (results_match ? " ✓" : " ✗") << endl;

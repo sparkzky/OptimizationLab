@@ -11,8 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-
-#define BLOCK_SIZE 262144 // 256KB - 与basic_benchmark一致
+#define BLOCK_SIZE 256 << 10 // 256KB - 与basic_benchmark一致
 
 // 优化的SIMD处理函数
 static inline void
@@ -26,41 +25,43 @@ process_block_simd_opt(const char* buffer, ssize_t size, uint32_t* total_line_nu
         __m256i cmp = _mm256_cmpeq_epi8(chunk, newline);
         uint32_t mask = _mm256_movemask_epi8(cmp);
 
+        i += 32;
         if (__builtin_expect(mask == 0, 0)) {
             // 快速路径：没有换行符
             *cur_len += 32;
-            i += 32;
         } else {
-            // 有换行符，逐字节处理这32字节
-            for (int j = 0; j < 32; j++) {
-                if (buffer[i + j] == '\n') {
-                    (*total_line_num)++;
-                    if (*cur_len >= MAX_LEN)
-                        line_num[MAX_LEN - 1]++;
-                    else
-                        line_num[*cur_len]++;
-                    *cur_len = 0;
+            int newlines_in_chunk = __builtin_popcount(mask);
+            *total_line_num += newlines_in_chunk;
+            int last_pos = -1;
+            while (mask != 0) {
+                int pos = __builtin_ctz(mask);
+                int line_length = *cur_len + (pos - last_pos - 1);
+                if (line_length < MAX_LEN) {
+                    ++line_num[line_length];
                 } else {
-                    (*cur_len)++;
+                    ++line_num[MAX_LEN - 1];
                 }
+                *cur_len = 0;
+                last_pos = pos;
+                // 高效清除这个已经处理过的 '1'
+                mask &= (mask - 1);
             }
-            i += 32;
+            *cur_len = 31 - last_pos;
         }
     }
-
     // 处理剩余字节
     while (i < size) {
         if (buffer[i] == '\n') {
-            (*total_line_num)++;
+            ++(*total_line_num);
             if (*cur_len >= MAX_LEN)
-                line_num[MAX_LEN - 1]++;
+                ++line_num[MAX_LEN - 1];
             else
-                line_num[*cur_len]++;
+                ++line_num[*cur_len];
             *cur_len = 0;
         } else {
-            (*cur_len)++;
+            ++(*cur_len);
         }
-        i++;
+        ++i;
     }
 }
 
