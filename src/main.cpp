@@ -19,6 +19,42 @@ void matrix_gen(float* a, float* b, int N, float seed) {
     }
 }
 
+float calculate_trace(const float* c, int N) {
+    float trace = 0.0f;
+    for (int i = 0; i < N; ++i) {
+        trace += c[i * N + i];
+    }
+    return trace;
+}
+
+void clear_matrix(float* c, int N) {
+    for (long long i = 0; i < (long long)N * N; ++i) {
+        c[i] = 0.0f;
+    }
+}
+
+template <typename MultiplyFunc>
+void run_matrix_multiply_test(const std::string& name, int N, float seed, MultiplyFunc multiply_func) {
+    std::cout << name << " N=" << N << " seed=" << seed << std::endl;
+
+    std::vector<float> a((long long)N * N);
+    std::vector<float> b((long long)N * N);
+    std::vector<float> c((long long)N * N);
+
+    matrix_gen(a.data(), b.data(), N, seed);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    multiply_func(a.data(), b.data(), c.data(), N);
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+    float trace = calculate_trace(c.data(), N);
+
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "Trace: " << trace << std::endl;
+    std::cout << "计算时间(s): " << duration.count() << std::endl;
+}
+
 void matrix_multiply(float* a, float* b, float* c, int N) {
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -39,31 +75,13 @@ int basic_multiply(int n, float seed) {
         return 1;
     }
 
-    std::cout << "Matrix_mul N=" << n << " seed=" << seed << std::endl;
-
-    std::vector<float> a((long long)n * n);
-    std::vector<float> b((long long)n * n);
-    std::vector<float> c((long long)n * n);
-
-    matrix_gen(a.data(), b.data(), n, seed);
-
-    auto start = std::chrono::high_resolution_clock::now();
-    matrix_multiply(a.data(), b.data(), c.data(), n);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end - start;
-
-    float trace = 0.0f;
-    for (int i = 0; i < n; ++i) {
-        trace += c[i * n + i];
-    }
-
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Trace: " << trace << std::endl;
-    std::cout << "计算时间(s): " << duration.count() << std::endl;
+    run_matrix_multiply_test(
+        "Matrix_mul", n, seed, [](float* a, float* b, float* c, int N) { matrix_multiply(a, b, c, N); });
 
     return 0;
 }
 
+// 基本矩阵乘法测试
 void test_basic_multiply(float seed = 0.12345f) {
     basic_multiply(512, seed);
     basic_multiply(1024, seed);
@@ -72,9 +90,7 @@ void test_basic_multiply(float seed = 0.12345f) {
 }
 
 void matrix_multiply_blocked(float* a, float* b, float* c, int N, int m) {
-    for (long long i = 0; i < (long long)N * N; ++i) {
-        c[i] = 0.0f;
-    }
+    clear_matrix(c, N);
 
     for (int i0 = 0; i0 < N; i0 += m) {
         for (int j0 = 0; j0 < N; j0 += m) {
@@ -100,28 +116,13 @@ void matrix_multiply_blocked(float* a, float* b, float* c, int N, int m) {
     }
 }
 
+// 分块矩阵乘法测试
 void blocked_multiply(int block_size, int N = 4096, float seed = 0.12345f) {
-    std::vector<float> a((long long)N * N);
-    std::vector<float> b((long long)N * N);
-    std::vector<float> c((long long)N * N);
-
-    matrix_gen(a.data(), b.data(), N, seed);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    matrix_multiply_blocked(a.data(), b.data(), c.data(), N, block_size);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end - start;
-
-    float trace = 0.0f;
-    for (int i = 0; i < N; ++i) {
-        trace += c[i * N + i];
-    }
-
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Trace: " << trace << std::endl;
-    std::cout << "计算时间(s): " << duration.count() << std::endl;
+    run_matrix_multiply_test(
+        "Blocked_multiply (block=" + std::to_string(block_size) + ")",
+        N,
+        seed,
+        [block_size](float* a, float* b, float* c, int N) { matrix_multiply_blocked(a, b, c, N, block_size); });
 }
 
 void test_blocked_multiply() {
@@ -132,9 +133,8 @@ void test_blocked_multiply() {
 }
 
 void matrix_multiply_blocked_sse(float* a, float* b, float* c, int N, int m) {
-    for (long long i = 0; i < (long long)N * N; ++i) {
-        c[i] = 0.0f;
-    }
+    clear_matrix(c, N);
+
     for (int i0 = 0; i0 < N; i0 += m) {
         for (int j0 = 0; j0 < N; j0 += m) {
             for (int k0 = 0; k0 < N; k0 += m) {
@@ -161,9 +161,7 @@ void matrix_multiply_blocked_sse(float* a, float* b, float* c, int N, int m) {
 }
 
 void matrix_multiply_blocked_avx(float* a, float* b, float* c, int N, int m) {
-    for (long long i = 0; i < (long long)N * N; ++i) {
-        c[i] = 0.0f;
-    }
+    clear_matrix(c, N);
 
     for (int i0 = 0; i0 < N; i0 += m) {
         for (int j0 = 0; j0 < N; j0 += m) {
@@ -190,53 +188,18 @@ void matrix_multiply_blocked_avx(float* a, float* b, float* c, int N, int m) {
     }
 }
 
+// 分块矩阵乘法测试 - SSE
 void blocked_multiply_sse(int N = 4096, float seed = 0.12345f) {
-    std::vector<float> a((long long)N * N);
-    std::vector<float> b((long long)N * N);
-    std::vector<float> c((long long)N * N);
-
-    matrix_gen(a.data(), b.data(), N, seed);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    matrix_multiply_blocked_sse(a.data(), b.data(), c.data(), N, 64);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end - start;
-
-    float trace = 0.0f;
-    for (int i = 0; i < N; ++i) {
-        trace += c[i * N + i];
-    }
-
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Trace: " << trace << std::endl;
-    std::cout << "计算时间(s): " << duration.count() << std::endl;
+    run_matrix_multiply_test("Blocked_multiply_SSE", N, seed, [](float* a, float* b, float* c, int N) {
+        matrix_multiply_blocked_sse(a, b, c, N, 32);
+    });
 }
 
-
+// 分块矩阵乘法测试 - AVX
 void blocked_multiply_avx(int N = 4096, float seed = 0.12345f) {
-    std::vector<float> a((long long)N * N);
-    std::vector<float> b((long long)N * N);
-    std::vector<float> c((long long)N * N);
-
-    matrix_gen(a.data(), b.data(), N, seed);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    matrix_multiply_blocked_avx(a.data(), b.data(), c.data(), N, 64);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end - start;
-
-    float trace = 0.0f;
-    for (int i = 0; i < N; ++i) {
-        trace += c[i * N + i];
-    }
-
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Trace: " << trace << std::endl;
-    std::cout << "计算时间(s): " << duration.count() << std::endl;
+    run_matrix_multiply_test("Blocked_multiply_AVX", N, seed, [](float* a, float* b, float* c, int N) {
+        matrix_multiply_blocked_avx(a, b, c, N, 32);
+    });
 }
 
 int main(int argc, char** argv) {
@@ -244,7 +207,6 @@ int main(int argc, char** argv) {
     // test_blocked_multiply();
     blocked_multiply_avx();
     blocked_multiply_sse();
-
 
     return 0;
 }
