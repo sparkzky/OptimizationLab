@@ -3,6 +3,7 @@
 #include <immintrin.h>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 float rand_float(float s) { return 4.0f * s * (1.0f - s); }
@@ -202,11 +203,82 @@ void blocked_multiply_avx(int N = 4096, float seed = 0.12345f) {
     });
 }
 
+// 多线程版本的分块矩阵乘法 (AVX)
+void matrix_multiply_blocked_avx_mt_worker(float* a, float* b, float* c, int N, int m, int start_row, int end_row) {
+    // 每个线程处理从 start_row 到 end_row 的行
+    for (int i0 = start_row; i0 < end_row; i0 += m) {
+        for (int j0 = 0; j0 < N; j0 += m) {
+            for (int k0 = 0; k0 < N; k0 += m) {
+                for (int i = i0; i < std::min(i0 + m, std::min(end_row, N)); ++i) {
+                    for (int k = k0; k < std::min(k0 + m, N); ++k) {
+                        __m256 a_val = _mm256_set1_ps(a[i * N + k]);
+                        for (int j = j0; j < std::min(j0 + m, N); j += 8) {
+                            __m256 b_vec = _mm256_loadu_ps(&b[k * N + j]);
+                            __m256 c_vec = _mm256_loadu_ps(&c[i * N + j]);
+                            c_vec = _mm256_fmadd_ps(a_val, b_vec, c_vec);
+                            _mm256_storeu_ps(&c[i * N + j], c_vec);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void matrix_multiply_blocked_avx_mt(float* a, float* b, float* c, int N, int m, int num_threads) {
+    clear_matrix(c, N);
+
+    std::vector<std::thread> threads;
+    int rows_per_thread = N / num_threads;
+
+    for (int t = 0; t < num_threads; ++t) {
+        int start_row = t * rows_per_thread;
+        int end_row = (t == num_threads - 1) ? N : (t + 1) * rows_per_thread;
+
+        threads.emplace_back(matrix_multiply_blocked_avx_mt_worker, a, b, c, N, m, start_row, end_row);
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+}
+
+// 多线程分块矩阵乘法测试 - AVX
+void blocked_multiply_avx_mt(int num_threads, int N = 4096, float seed = 0.12345f) {
+    run_matrix_multiply_test("Blocked_multiply_AVX_MT (threads=" + std::to_string(num_threads) + ")",
+                             N,
+                             seed,
+                             [num_threads](float* a, float* b, float* c, int N) {
+                                 matrix_multiply_blocked_avx_mt(a, b, c, N, 32, num_threads);
+                             });
+}
+
+// 测试不同线程数的性能
+void test_multithreaded_performance(int N = 4096, float seed = 0.12345f) {
+    std::cout << "\n========== 多线程性能对比测试 ==========" << std::endl;
+    std::cout << "CPU: Intel Core i5-8500 (6 cores)\n" << std::endl;
+
+    // 单线程基准
+    std::cout << "--- 单线程（基准） ---" << std::endl;
+    blocked_multiply_avx_mt(1, N, seed);
+
+    // 测试不同线程数
+    for (int threads : {2, 4, 6, 8, 12, 16}) {
+        std::cout << "\n--- " << threads << " 线程 ---" << std::endl;
+        blocked_multiply_avx_mt(threads, N, seed);
+    }
+
+    std::cout << "\n======================================" << std::endl;
+}
+
 int main(int argc, char** argv) {
     // test_basic_multiply();
     // test_blocked_multiply();
-    blocked_multiply_avx();
-    blocked_multiply_sse();
+    // blocked_multiply_avx();
+    // blocked_multiply_sse();
+
+    // 多线程性能对比测试
+    test_multithreaded_performance();
 
     return 0;
 }

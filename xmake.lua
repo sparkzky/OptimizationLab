@@ -6,6 +6,7 @@ target("last_work")
     set_optimize("fastest")
     set_languages("c++17")
     add_cxflags("-msse", "-mavx", "-mfma")
+    add_syslinks("pthread")
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
 --
