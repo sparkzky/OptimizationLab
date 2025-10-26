@@ -1,3 +1,9 @@
+/*
+矩阵乘法性能测试程序
+包含基本矩阵乘法、分块矩阵乘法、SSE/AVX优化、以及多线程版本的实现和测试
+*/
+
+
 #include <chrono>
 #include <cstdlib>
 #include <immintrin.h>

@@ -1,12 +1,46 @@
 add_rules("mode.debug", "mode.release")
+add_rules("plugin.compile_commands.autoupdate", {outputdir = ".vscode"})
 
-target("last_work")
+-- 全局配置
+set_optimize("fastest")
+set_languages("c++17")
+add_includedirs("./include")
+
+-- 矩阵乘法程序
+target("matrix_multiply")
     set_kind("binary")
-    add_files("src/*.cpp")
-    set_optimize("fastest")
-    set_languages("c++17")
+    add_files("src/matrix_multiply/matrix_multiply.cpp")
     add_cxflags("-msse", "-mavx", "-mfma")
     add_syslinks("pthread")
+
+-- 文件行分析程序
+target("filelines")
+    set_kind("binary")
+    add_files("src/basic_benchmark/filelines.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/find_most_freq.cpp")
+
+-- 测试文件生成器
+target("filelines_gen")
+    set_kind("binary")
+    add_files("src/filelines_gen.cpp")
+
+-- 块大小性能测试程序
+target("blocksize_benchmark")
+    set_kind("binary")
+    add_files("src/blocksize_benchmark/blocksize_benchmark.cpp", "src/blocksize_benchmark/filelines_blocksize.cpp", "src/find_most_freq.cpp")
+
+-- SIMD性能测试程序
+target("simd_perf_test")
+    set_kind("binary")
+    add_files("src/simd_benchmark/simd_perf_test.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/simd_benchmark/filelines_simd_opt.cpp", "src/find_most_freq.cpp")
+    add_cxflags("-mavx2", "-mfma")
+
+-- 多线程SIMD性能测试程序（生产者-消费者模型）
+target("mt_perf_test")
+    set_kind("binary")
+    add_files("src/simd_benchmark/mt_perf_test.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/simd_benchmark/filelines_simd_opt.cpp", "src/simd_benchmark/filelines_mt.cpp", "src/find_most_freq.cpp")
+    add_cxflags("-mavx2", "-mfma")
+    add_syslinks("pthread")
+
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
 --
