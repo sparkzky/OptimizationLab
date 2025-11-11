@@ -76,6 +76,8 @@ void matrix_multiply(float* a, float* b, float* c, int N) {
     //         c[i * N + j] = sum;
     //     }
     // }
+
+    // 下面的更快
     for (int i = 0; i < N; ++i) {
         for (int k = 0; k < N; ++k) {
             // 将 A[i][k] 加载到寄存器中

@@ -31,12 +31,14 @@ $(OBJ_DIR)/src/matrix_multiply/%.o: src/matrix_multiply/%.cpp | $(OBJ_DIR)/src/m
 
 # filelines target
 FILELINES_SRCS := src/basic_benchmark/filelines.cpp \
-                  src/basic_benchmark/filelines_baseline.cpp \
-                  src/find_most_freq.cpp
+                src/basic_benchmark/filelines_baseline.cpp \
+                src/find_most_freq.cpp \
+				src/simd_benchmark/filelines_mt.cpp
 FILELINES_OBJS := $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(FILELINES_SRCS))
+FILELINES_LDFLAGS := $(LDFLAGS) -lpthread
 
 filelines: $(FILELINES_OBJS) | $(BUILD_DIR)
-	$(CXX) $(FILELINES_OBJS) -o $(BUILD_DIR)/$@ $(LDFLAGS)
+	$(CXX) $(FILELINES_OBJS) -o $(BUILD_DIR)/$@ $(FILELINES_LDFLAGS)
 
 $(OBJ_DIR)/src/basic_benchmark/%.o: src/basic_benchmark/%.cpp | $(OBJ_DIR)/src/basic_benchmark
 	$(CXX) $(CXXFLAGS) -c $< -o $@

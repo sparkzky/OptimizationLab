@@ -5,6 +5,8 @@ add_rules("plugin.compile_commands.autoupdate", {outputdir = ".vscode"})
 set_optimize("fastest")
 set_languages("c++17")
 add_includedirs("./include")
+-- 使用本机架构优化
+add_cxflags("-march=native")
 
 -- 矩阵乘法程序
 target("matrix_multiply")
