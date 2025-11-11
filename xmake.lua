@@ -16,7 +16,7 @@ target("matrix_multiply")
 -- 文件行分析程序
 target("filelines")
     set_kind("binary")
-    add_files("src/basic_benchmark/filelines.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/find_most_freq.cpp")
+    add_files("src/basic_benchmark/filelines.cpp", "src/basic_benchmark/filelines_baseline.cpp", "src/find_most_freq.cpp","src/simd_benchmark/filelines_mt.cpp")
 
 -- 测试文件生成器
 target("filelines_gen")
