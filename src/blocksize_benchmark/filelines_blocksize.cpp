@@ -1,4 +1,5 @@
 #include "filelines_blocksize.h"
+
 #include "find_most_freq.h"
 
 #include <fcntl.h>
@@ -8,8 +9,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void filelines_with_blocksize(char* filepath, uint32_t* total_line_num,
-                               uint32_t* line_num, size_t block_size) {
+
+void filelines_with_blocksize(char* filepath, uint32_t* total_line_num, uint32_t* line_num, size_t block_size) {
     int handle;
     if ((handle = open(filepath, O_RDONLY)) < 0)
         return;

@@ -57,8 +57,10 @@ TestResult run_test(char* filepath, void (*test_func)(char*, uint32_t*, uint32_t
     result.most_freq_len = most_freq_len;
     result.most_freq_count = most_freq_len_linenum;
 
-    cout << " 完成 (" << fixed << setprecision(3) << duration.count() << "s, " << setprecision(1)
-         << result.throughput_mb_s << " MB/s)" << endl;
+    // 这个地方也非常神奇，你要是改用下面的cout，统计出来的执行时间就会变长:)
+    cout << " 完成 (" << fixed << setprecision(3) << duration.count() << "s)" << endl;
+    //    cout << " 完成 (" << fixed << setprecision(3) << duration.count() << "s, " << setprecision(1)
+    //         << result.throughput_mb_s << " MB/s)" << endl;
 
     return result;
 }
