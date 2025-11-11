@@ -3,6 +3,7 @@
 
 #include "find_most_freq.h"
 
+#include <cstdlib>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -38,5 +39,6 @@ void filelines_baseline(char* filepath, uint32_t* total_line_num, uint32_t* line
             }
         }
     }
+    free(bp);
     close(handle);
 }

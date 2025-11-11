@@ -24,15 +24,17 @@ struct BlockSizeConfig {
 
 // 定义要测试的块大小
 BlockSizeConfig block_sizes[] = {
-    {64, "64B"},
-    {256, "256B"},
-    {1024, "1KB"},
-    {4096, "4KB"},
-    {16384, "16KB"},
-    {65536, "64KB"},
+    // {64, "64B"},
+    // {256, "256B"},
+    // {1024, "1KB"},
+    // {4096, "4KB"},
+    // {16384, "16KB"},
+    // {65536, "64KB"},
     {262144, "256KB"},
-    {1048576, "1MB"},
-    {4194304, "4MB"},
+    // {524288, "512KB"},
+    // {1048576, "1MB"},
+    // {2097152, "2MB"},
+    // {4194304, "4MB"},
 };
 
 const int NUM_BLOCK_SIZES = sizeof(block_sizes) / sizeof(block_sizes[0]);
@@ -44,8 +46,8 @@ void print_header() {
 }
 
 void print_result_header() {
-    cout << left << setw(12) << "块大小" << setw(18) << "执行时间(秒)" << setw(15) << "吞吐量(MB/s)" << setw(12)
-         << "总行数" << setw(15) << "最频繁长度" << setw(15) << "出现次数" << endl;
+    cout << left << setw(15) << "块大小" << setw(18) << "执行时间(秒)" << setw(20) << "吞吐量(MB/s)" << setw(20)
+         << "总行数" << setw(20) << "最频繁长度" << setw(20) << "出现次数" << endl;
     cout << string(85, '-') << endl;
 }
 

@@ -43,20 +43,21 @@ struct SharedData {
     char* filepath;
 };
 
-// SIMD处理函数（与之前相同）
+// SIMD处理函数 (使用 SSE 替代 AVX2，因为 AVX 不支持 256 位整数运算)
 static inline void
 process_block_simd_opt(const char* buffer, ssize_t size, uint32_t* total_line_num, uint32_t* line_num, int* cur_len) {
     ssize_t i = 0;
-    const __m256i newline = _mm256_set1_epi8('\n');
+    const __m128i newline = _mm_set1_epi8('\n');
 
-    while (i + 32 <= size) {
-        __m256i chunk = _mm256_loadu_si256((__m256i*)(buffer + i));
-        __m256i cmp = _mm256_cmpeq_epi8(chunk, newline);
-        uint32_t mask = _mm256_movemask_epi8(cmp);
+    // SIMD处理：每次处理16字节 (SSE)
+    while (i + 16 <= size) {
+        __m128i chunk = _mm_loadu_si128((__m128i*)(buffer + i));
+        __m128i cmp = _mm_cmpeq_epi8(chunk, newline);
+        uint32_t mask = _mm_movemask_epi8(cmp);
 
-        i += 32;
+        i += 16;
         if (__builtin_expect(mask == 0, 0)) {
-            *cur_len += 32;
+            *cur_len += 16;
         } else {
             int newlines_in_chunk = __builtin_popcount(mask);
             *total_line_num += newlines_in_chunk;
@@ -74,7 +75,7 @@ process_block_simd_opt(const char* buffer, ssize_t size, uint32_t* total_line_nu
                 // 高效清除这个已经处理过的 '1'
                 mask &= (mask - 1);
             }
-            *cur_len = 31 - last_pos;
+            *cur_len = 15 - last_pos;
         }
     }
     while (i < size) {
@@ -107,8 +108,8 @@ void* producer_thread(void* arg) {
     }
 
     while (1) {
-        // 分配缓冲区
-        char* buffer = (char*)aligned_alloc(32, BLOCK_SIZE);
+        // 分配缓冲区 (16字节对齐用于SSE)
+        char* buffer = (char*)aligned_alloc(16, BLOCK_SIZE);
         if (!buffer)
             break;
 

@@ -13,22 +13,22 @@
 
 #define BLOCK_SIZE 256 << 10 // 256KB - 与basic_benchmark一致
 
-// 优化的SIMD处理函数
+// 优化的SIMD处理函数 (使用 SSE 替代 AVX2，因为 AVX 不支持 256 位整数运算)
 static inline void
 process_block_simd_opt(const char* buffer, ssize_t size, uint32_t* total_line_num, uint32_t* line_num, int* cur_len) {
     ssize_t i = 0;
-    const __m256i newline = _mm256_set1_epi8('\n');
+    const __m128i newline = _mm_set1_epi8('\n');
 
-    // SIMD处理：每次处理32字节
-    while (i + 32 <= size) {
-        __m256i chunk = _mm256_loadu_si256((__m256i*)(buffer + i));
-        __m256i cmp = _mm256_cmpeq_epi8(chunk, newline);
-        uint32_t mask = _mm256_movemask_epi8(cmp);
+    // SIMD处理：每次处理16字节 (SSE)
+    while (i + 16 <= size) {
+        __m128i chunk = _mm_loadu_si128((__m128i*)(buffer + i));
+        __m128i cmp = _mm_cmpeq_epi8(chunk, newline);
+        uint32_t mask = _mm_movemask_epi8(cmp);
 
-        i += 32;
+        i += 16;
         if (__builtin_expect(mask == 0, 0)) {
             // 快速路径：没有换行符
-            *cur_len += 32;
+            *cur_len += 16;
         } else {
             int newlines_in_chunk = __builtin_popcount(mask);
             *total_line_num += newlines_in_chunk;
@@ -46,7 +46,7 @@ process_block_simd_opt(const char* buffer, ssize_t size, uint32_t* total_line_nu
                 // 高效清除这个已经处理过的 '1'
                 mask &= (mask - 1);
             }
-            *cur_len = 31 - last_pos;
+            *cur_len = 15 - last_pos;
         }
     }
     // 处理剩余字节
@@ -70,8 +70,8 @@ void filelines_simd(char* filepath, uint32_t* total_line_num, uint32_t* line_num
     if ((handle = open(filepath, O_RDONLY)) < 0)
         return;
 
-    // 对齐分配以提升SIMD性能
-    char* bp = (char*)aligned_alloc(32, BLOCK_SIZE);
+    // 对齐分配以提升SIMD性能 (16字节对齐用于SSE)
+    char* bp = (char*)aligned_alloc(16, BLOCK_SIZE);
     if (bp == NULL) {
         close(handle);
         return;
